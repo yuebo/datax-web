@@ -5,6 +5,7 @@ import com.eappcat.datax.web.dto.JobDTO;
 import com.eappcat.datax.web.loader.DataxLoader;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -29,13 +30,19 @@ public class DataxController {
     }
 
     @GetMapping("/runJob/{job}")
-    public int runJob(@PathVariable("job") String job){
+    public JSONObject runJob(@PathVariable("job") String job){
+        JSONObject jsonObject=new JSONObject();
         try {
-            return dataxLoader.executeJob(job);
+            jsonObject.put("jobId",dataxLoader.executeJobProcess(job));
         }catch (Exception e){
-            log.error("error to run job {}",e.getMessage());
-            return 0;
+            jsonObject.put("error",e.getMessage());
         }
+        return jsonObject;
 
+    }
+    @GetMapping(value = "/log/{jobId}",produces = MediaType.TEXT_PLAIN_VALUE)
+    public String log(@PathVariable("jobId") String jobId) throws IOException {
+        String data=dataxLoader.getLog(jobId);
+        return data;
     }
 }

@@ -7,7 +7,9 @@ import com.eappcat.datax.web.dto.JobDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -16,7 +18,9 @@ import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,6 +29,9 @@ import java.util.Map;
 public class DataxLoader {
     private transient URLClassLoader loader;
     private Map<String, DataxPluginDTO> plugins=new HashMap<>();
+
+    @Autowired
+    private ApplicationContext applicationContext;
     @Autowired
     private DataxProperties dataxProperties;
     @PostConstruct
@@ -94,6 +101,12 @@ public class DataxLoader {
 
     }
 
+    /**
+     * classLoader模式
+     * @param job
+     * @return
+     * @throws Exception
+     */
     public int executeJob(String job) throws Exception {
         Class clazz=this.loader.loadClass("com.alibaba.datax.core.Engine");
         Method main=clazz.getDeclaredMethod("entry",String[].class);
@@ -105,6 +118,18 @@ public class DataxLoader {
             return 1;
         }
         return 0;
+    }
+
+    /**
+     * 命令模式
+     * @param job
+     * @throws Exception
+     */
+    public String executeJobProcess(String job) throws Exception {
+        SimpleDateFormat simpleDateFormat=new SimpleDateFormat("yyyyMMddHHmmss");
+        DataxJobEvent dataxJobEvent=new DataxJobEvent(job,simpleDateFormat.format(new Date()));
+        applicationContext.publishEvent(dataxJobEvent);
+        return dataxJobEvent.getJob()+"_"+dataxJobEvent.getTimestamp();
     }
     public Map<String, DataxPluginDTO> getPlugins() {
         return plugins;
@@ -132,4 +157,13 @@ public class DataxLoader {
         loader.close();
     }
 
+    public String getLog(String jobId) throws IOException {
+        File logRoot=new File(dataxProperties.getHome(),"logs");
+        File log=new File(logRoot,jobId.concat(".log"));
+        if(!log.exists()){
+            return "";
+        }
+        return FileUtils.readFileToString(log);
+
+    }
 }
